@@ -14,7 +14,6 @@ import { sp } from '@pnp/sp/presets/all';
 export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEditorWebPartProps> {
     public _propertyPaneHelper;
     private _unqiueId;
-    private _externalScriptContent;
 
     constructor() {
         super();
@@ -27,16 +26,6 @@ export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEd
     }
 
     protected async onInit(): Promise<void> {
-        if (this.properties.useExternalScript) {
-            try {
-                const prefix = this.properties.externalScript.indexOf('?') === -1 ? '?' : '&';
-                const response = await fetch(`${this.properties.externalScript}${prefix}pnp=${new Date().getTime()}`);
-                this._externalScriptContent = await response.text();
-            } catch {
-                this._externalScriptContent = 'Failed to load external script.';
-            }
-        }
-
         await super.onInit();
         sp.setup({
             spfxContext: this.context as any
@@ -69,10 +58,54 @@ export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEd
                 if (!isInAudience) return;
             }
 
-            this.domElement.innerHTML = this.properties.useExternalScript ? this._externalScriptContent : this.properties.script;
-            this.executeScript(this.domElement);
+            if (this.properties.useExternalScript) {
+                this.domElement.innerHTML = '';
+                await this.executeExternalScript();
+            } else {
+                this.domElement.innerHTML = this.properties.script;
+                await this.executeScript(this.domElement);
+            }
         } else {
             this.renderEditor();
+        }
+    }
+
+    private getValidatedScriptUrl(url: string): string | null {
+        if (!url || url.trim().length === 0) {
+            return null;
+        }
+
+        try {
+            const parsedUrl = new URL(url.trim(), window.location.origin);
+            const isHttp = parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:';
+            if (!isHttp) {
+                return null;
+            }
+
+            if (parsedUrl.protocol === 'http:' && parsedUrl.hostname !== 'localhost' && parsedUrl.hostname !== '127.0.0.1') {
+                return null;
+            }
+
+            return parsedUrl.toString();
+        } catch {
+            return null;
+        }
+    }
+
+    private async executeExternalScript(): Promise<void> {
+        const validatedUrl = this.getValidatedScriptUrl(this.properties.externalScript);
+        if (!validatedUrl) {
+            this.domElement.textContent = 'External script URL is invalid. Use HTTPS (or localhost HTTP for development).';
+            return;
+        }
+
+        try {
+            let scriptUrl = validatedUrl;
+            const prefix = scriptUrl.indexOf('?') === -1 ? '?' : '&';
+            scriptUrl += `${prefix}pnp=${new Date().getTime()}`;
+            await SPComponentLoader.loadScript(scriptUrl, { globalExportsName: 'ScriptGlobal' });
+        } catch {
+            this.domElement.textContent = 'Failed to load external script.';
         }
     }
 
@@ -256,7 +289,10 @@ export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEd
         for (let i = 0; scripts[i]; i++) {
             const scriptTag = scripts[i];
             if (scriptTag.src && scriptTag.src.length > 0) {
-                urls.push(scriptTag.src);
+                const validatedUrl = this.getValidatedScriptUrl(scriptTag.src);
+                if (validatedUrl) {
+                    urls.push(validatedUrl);
+                }
             }
             if (scriptTag.onload && scriptTag.onload.length > 0) {
                 onLoads.push(scriptTag.onload);
