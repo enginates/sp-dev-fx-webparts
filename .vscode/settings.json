@@ -4,6 +4,8 @@
         "fileMatch": ["**/assets/sample.json"], 
         "url": "pnp/sp-dev-fx-webparts/templates/metadata-schema.json"
       }
-    ]
+    ],
+    "snyk.advanced.organization": "0f6117af-07ae-4e5a-a004-93ff5ead1859",
+    "snyk.advanced.autoSelectOrganization": true
   }
   
