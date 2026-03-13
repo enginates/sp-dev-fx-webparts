@@ -9,7 +9,6 @@ import { IScriptEditorWebPartProps } from './IScriptEditorWebPartProps';
 import PropertyPaneLogo from './PropertyPaneLogo';
 import { PrincipalType, PropertyFieldNumber, PropertyFieldPeoplePicker } from '@pnp/spfx-property-controls';
 import { UserGroupCheck } from './AccessCheck';
-import { sp } from '@pnp/sp/presets/all';
 
 export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEditorWebPartProps> {
     public _propertyPaneHelper;
@@ -27,9 +26,6 @@ export default class ScriptEditorWebPart extends BaseClientSideWebPart<IScriptEd
 
     protected async onInit(): Promise<void> {
         await super.onInit();
-        sp.setup({
-            spfxContext: this.context as any
-        });
     }
 
     public async render(): Promise<void> {

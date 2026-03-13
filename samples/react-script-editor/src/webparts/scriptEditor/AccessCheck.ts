@@ -1,5 +1,9 @@
 import { WebPartContext } from "@microsoft/sp-webpart-base";
-import { sp } from "@pnp/sp/presets/all";
+import { SPFI, spfi } from "@pnp/sp";
+import { SPFx } from "@pnp/sp/behaviors/spfx";
+import "@pnp/sp/webs";
+import "@pnp/sp/site-groups/web";
+import "@pnp/sp/site-users/web";
 import { IPropertyFieldGroupOrPerson } from "@pnp/spfx-property-controls";
 
 export class UserGroupCheck {
@@ -10,11 +14,13 @@ export class UserGroupCheck {
     _audiences: IPropertyFieldGroupOrPerson[];
     _audienceCacheDuration: number; // hours
     _context: WebPartContext;
+    _sp: SPFI;
 
     constructor(audiences: IPropertyFieldGroupOrPerson[], audienceCacheDuration: number, context: WebPartContext) {
         this._audiences = audiences;
         this._audienceCacheDuration = audienceCacheDuration || 24;
         this._context = context;
+        this._sp = spfi().using(SPFx(this._context));
     }
 
     public async CheckAudiences(): Promise<boolean> {
@@ -59,12 +65,7 @@ export class UserGroupCheck {
      */
     private async isCurrentUserMemberOfGroup(groupId: number): Promise<boolean> {
         try {
-            const groupUsers = await sp.web.siteGroups.getById(groupId).users
-                .usingCaching({
-                    storeName: "local",
-                    key: `isCurrentUserMemberOfGroup-${groupId}-${this._context.pageContext.web.id.toString()}`,
-                    expiration: new Date(new Date().getTime() + (this._audienceCacheDuration * 60 * 60 * 1000))
-                })();
+            const groupUsers = await this._sp.web.siteGroups.getById(groupId).users();
 
             // Check if the current user's ID is in the list of group users
             return groupUsers.some(user => user.Id === this._context.pageContext.legacyPageContext.userId);
